@@ -1,0 +1,9 @@
+{
+    "name": "snowpack-plugin-tiled",
+    "version": "0.0.1",
+    "main": "plugin.js",
+    "license": "MIT",
+    "dependencies": {
+        "jsdom": "^16.4.0"
+    }
+}
