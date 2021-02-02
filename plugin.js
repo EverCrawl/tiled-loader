@@ -255,6 +255,7 @@ async function transformTilemap(filePath, document) {
                         throw new Error(`[File '${filePath}'] Could not find tileset for layer#${layerIndex}, expected tileset.firstgid < ${gid}`)
                     }
                     const tile = tileset.data.tiles[gid - tileset.firstgid];
+                    
                     // resolve collision
                     if (tile.collision != null) {
                         if (CollisionKind[tile.collision] == null) {
@@ -262,14 +263,14 @@ async function transformTilemap(filePath, document) {
                         }
                         result.collision[tileIndex] = CollisionKind[tile.collision];
                     }
-                    // also set the tile and tileset IDs which will be stored later
+
                     tilesetId = tileset.id;
-                    tileId = gid - tileset.firstgid;
+                    // the '1' is added because '0' has the special value "no tile"
+                    tileId = (gid - tileset.firstgid) + 1;
                 }
 
                 // store the tile
                 if (result.tile[layerIndex] == null) result.tile[layerIndex] = [];
-                // TODO: check if this is correct
                 result.tile[layerIndex][tileIndex] = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
                                                    | ((tileId << TILE_ID_BIT_N) >>> 0);
             }
@@ -293,7 +294,6 @@ async function transformTilemap(filePath, document) {
             }
             let tilesetId = tileset.id;
             let tileId = result.object[name].tileId - tileset.firstgid;
-            // TODO: check if this is correct
             result.object[name].tileId = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
                                     | ((tileId << TILE_ID_BIT_N) >>> 0);
         }
@@ -381,7 +381,6 @@ module.exports = function (cfg, opt = {}) {
 
             let data;
             if (isTilemapXML(xml)) {
-                // TODO transform tilemap
                 data = {
                     ".amt": JSON.stringify(await transformTilemap(filePath, xml))
                 }
