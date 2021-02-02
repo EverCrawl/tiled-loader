@@ -69,11 +69,9 @@ function parseTiledObject(el) {
             x: parseFloat(el.getAttribute("x")),
             y: parseFloat(el.getAttribute("y")),
             width: parseFloat(el.getAttribute("width")),
-            height: parseFloat(el.getAttribute("height"))
+            height: parseFloat(el.getAttribute("height")),
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         return out;
     }
@@ -82,11 +80,9 @@ function parseTiledObject(el) {
             type: "point",
             id: parseInt(el.getAttribute("id")),
             x: parseFloat(el.getAttribute("x")),
-            y: parseFloat(el.getAttribute("y"))
+            y: parseFloat(el.getAttribute("y")),
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         return out;
     }
@@ -105,11 +101,11 @@ function parseTiledObject(el) {
         const out = {
             type: "polygon",
             id: parseInt(el.getAttribute("id")),
-            points
+            x: originX,
+            y: originY,
+            points,
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         return out;
     }
@@ -128,11 +124,11 @@ function parseTiledObject(el) {
         const out = {
             type: "polyline",
             id: parseInt(el.getAttribute("id")),
-            points
+            x: originX,
+            y: originY,
+            points,
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         return out;
     }
@@ -148,11 +144,9 @@ function parseTiledObject(el) {
                 size: data.getAttribute("pixelsize"),
                 wrap: parseInt(data.getAttribute("wrap")) === 1,
                 content: data.textContent
-            }
+            },
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         return out;
     }
@@ -162,11 +156,9 @@ function parseTiledObject(el) {
             x:      parseFloat  (el.getAttribute("x")),
             y:      parseFloat  (el.getAttribute("y")),
             width: el.getAttribute("width"),
-            height: el.getAttribute("height")
+            height: el.getAttribute("height"),
+            props: getProperties(el) ?? {}
         };
-
-        const props = getProperties(el);
-        if (props != null) out.props = props;
 
         const gid = el.getAttribute("gid");
         if (gid != null) {
@@ -188,7 +180,7 @@ async function transformTilemap(filePath, document) {
 
     /******** STEP 1: read basic info ********/
     /** 
-     * @type {{width:number,height:number,background:string,tilesets:{id:number,firstgid:number,path:string}[],collision:string[][],tile:number[][],entity:{[n:string]:{[f:string]:any}[]}}} 
+     * @type {{width:number,height:number,background:string,tilesets:{id:number,firstgid:number,path:string}[],collision:string[][],tile:number[][],object:{[n:string]:{[f:string]:any}[]}}} 
      */
     const result = {
         width: parseFloat(root.getAttribute("width")),
@@ -197,7 +189,7 @@ async function transformTilemap(filePath, document) {
         tilesets: [],
         collision: [],
         tile: [],
-        entity: {}
+        object: {}
     }
 
     /******** STEP 2: read tilesets ********/
@@ -284,36 +276,34 @@ async function transformTilemap(filePath, document) {
         }
     }
     
-    /******** STEP 4: read entity layer ********/
-    for (const entity of root.getElementsByTagName("objectgroup")[0].getElementsByTagName("object")) {
-        const name = entity.getAttribute("name");
-        if (name == null) throw new Error(`[${filePath}] Entity#${entity.getAttribute("id")} is missing 'name'`);
-        if (result.entity[name] != null) throw new Error(`[${filePath}] Duplicate entity name ${name}`);
-        result.entity[name] = parseTiledObject(entity);
+    /******** STEP 4: read object layer ********/
+    for (const object of root.getElementsByTagName("objectgroup")[0].getElementsByTagName("object")) {
+        const name = object.getAttribute("name");
+        if (name == null) throw new Error(`[${filePath}] Object#${object.getAttribute("id")} is missing 'name'`);
+        if (result.object[name] != null) throw new Error(`[${filePath}] Duplicate object name ${name}`);
+        result.object[name] = parseTiledObject(object);
 
-        if (result.entity[name].type === "tile") {
+        if (result.object[name].type === "tile") {
             // resolve GID
-            const tileset = tilesets.find(ts => ts.firstgid <= result.entity[name].tileId);
+            const tileset = tilesets.find(ts => ts.firstgid <= result.object[name].tileId);
             if (tileset == null) {
                 // couldn't find tileset, which is an error
                 // should never actually happen though
-                throw new Error(`[File '${filePath}'] Could not find tileset for entity '${name}', expected tileset.firstgid < ${result.entity[name].gid}`)
+                throw new Error(`[File '${filePath}'] Could not find tileset for entity '${name}', expected tileset.firstgid < ${result.object[name].gid}`)
             }
             let tilesetId = tileset.id;
-            let tileId = result.entity[name].tileId - tileset.firstgid;
+            let tileId = result.object[name].tileId - tileset.firstgid;
             // TODO: check if this is correct
-            result.entity[name].tileId = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
+            result.object[name].tileId = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
                                     | ((tileId << TILE_ID_BIT_N) >>> 0);
         }
     }
 
     /******** STEP 5: cleanup ********/
-    for (const tileset of result.tilesets) {
-        // remove `firstgid` from every tileset
-        // this was only needed temporarily while resolving tilesets for each tile layer
-        delete tileset.firstgid;
-        // change ext from `.xml` to `.amt`
-        tileset.path = tileset.path.replace(".xml", ".amt");
+    for (let tilesetIndex = 0; tilesetIndex < result.tilesets.length; ++tilesetIndex) {
+        // each tileset will be represented just by its URI
+        // also change ext from `.xml` to `.amt`
+        result.tilesets[tilesetIndex] = result.tilesets[tilesetIndex].path.replace(".xml", ".amt");
     }
 
     // done!
@@ -361,7 +351,8 @@ function transformTileset(filePath, document, omitTileProps = []) {
     const root = document.getElementsByTagName("tileset")[0];
 
     // NOTE: assuming only one `image` element exists
-    const imageEl = root.getElementsByTagName("image")[0];
+    // we want this: `<image source="..." />`
+    const image = root.getElementsByTagName("image")[0].getAttribute("source");
     
     // map each tile from `<tile id="..."><properties>...</properties></tile>`
     // to (id: properties) pairs, then convert it to an object
@@ -372,14 +363,8 @@ function transformTileset(filePath, document, omitTileProps = []) {
         if (props != null) tiles[tile.getAttribute("id")] = props;
     }
 
-    return {
-        image: {
-            path: imageEl.getAttribute("source"),
-            width: parseFloat(imageEl.getAttribute("width")),
-            height: parseFloat(imageEl.getAttribute("height")),
-        },
-        tiles
-    }
+
+    return { image, tiles }
 }
 
 /** @type {import("snowpack").SnowpackPluginFactory} */
