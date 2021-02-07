@@ -12,8 +12,8 @@ const DOMParser = DOM.window.DOMParser;
 const xmlParser = new DOMParser;
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000;
-const FLIPPED_VERTICALLY_FLAG   = 0x40000000;
-const FLIPPED_DIAGONALLY_FLAG   = 0x20000000;
+const FLIPPED_VERTICALLY_FLAG = 0x40000000;
+const FLIPPED_DIAGONALLY_FLAG = 0x20000000;
 const TILE_ID_BIT_N = 0;
 const TILESET_ID_BIT_N = 10;
 
@@ -26,6 +26,8 @@ const CollisionKind = Object.freeze({
     5: "SlopeRightBottom",
     6: "SlopeLeftTop",
     7: "SlopeRightTop",
+    8: "Ladder",
+    9: "Platform",
     "None": 0,
     "Full": 1,
     "SlopeLeft": 2,
@@ -34,6 +36,8 @@ const CollisionKind = Object.freeze({
     "SlopeRightBottom": 5,
     "SlopeLeftTop": 6,
     "SlopeRightTop": 7,
+    "Ladder": 8,
+    "Platform": 9,
 })
 
 /** @param {Element} document */
@@ -49,9 +53,9 @@ function isTilemapXML(document) {
 }
 
 async function loadTileset(filePath) {
-    return transformTileset(filePath, 
+    return transformTileset(filePath,
         xmlParser.parseFromString(
-            await fs.readFile(filePath, "utf-8"), 
+            await fs.readFile(filePath, "utf-8"),
             "text/xml"));
 
 }
@@ -152,9 +156,9 @@ function parseTiledObject(el) {
     }
     else {
         const out = {
-            id:     parseInt    (el.getAttribute("id")),
-            x:      parseFloat  (el.getAttribute("x")),
-            y:      parseFloat  (el.getAttribute("y")),
+            id: parseInt(el.getAttribute("id")),
+            x: parseFloat(el.getAttribute("x")),
+            y: parseFloat(el.getAttribute("y")),
             width: el.getAttribute("width"),
             height: el.getAttribute("height"),
             props: getProperties(el) ?? {}
@@ -211,7 +215,7 @@ async function transformTilemap(filePath, document) {
         tilesets.push({
             id: t.id,
             firstgid: t.firstgid,
-            data: await loadTileset(path.join(path.dirname(filePath), 
+            data: await loadTileset(path.join(path.dirname(filePath),
                 // the tileset is saved with '.xml', but tiled saves the path with '.tsx'
                 t.path.replace(".tsx", ".xml")))
         })
@@ -234,7 +238,7 @@ async function transformTilemap(filePath, document) {
                 // we don't care about flipping, just clear it
                 // https://doc.mapeditor.org/en/stable/reference/tmx-map-format/#tile-flipping
                 gid &= ~(FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG);
-    
+
                 // gid '0' means no tile
                 let tilesetId;
                 let tileId;
@@ -255,7 +259,7 @@ async function transformTilemap(filePath, document) {
                         throw new Error(`[File '${filePath}'] Could not find tileset for layer#${layerIndex}, expected tileset.firstgid < ${gid}`)
                     }
                     const tile = tileset.data.tiles[gid - tileset.firstgid];
-                    
+
                     // resolve collision
                     if (tile.collision != null) {
                         if (CollisionKind[tile.collision] == null) {
@@ -271,12 +275,12 @@ async function transformTilemap(filePath, document) {
 
                 // store the tile
                 if (result.tile[layerIndex] == null) result.tile[layerIndex] = [];
-                result.tile[layerIndex][tileIndex] = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
-                                                   | ((tileId << TILE_ID_BIT_N) >>> 0);
+                result.tile[layerIndex][tileIndex] = ((tilesetId << TILESET_ID_BIT_N) >>> 0)
+                    | ((tileId << TILE_ID_BIT_N) >>> 0);
             }
         }
     }
-    
+
     /******** STEP 4: read object layer ********/
     for (const object of root.getElementsByTagName("objectgroup")[0].getElementsByTagName("object")) {
         const name = object.getAttribute("name");
@@ -294,8 +298,8 @@ async function transformTilemap(filePath, document) {
             }
             let tilesetId = tileset.id;
             let tileId = result.object[name].tileId - tileset.firstgid;
-            result.object[name].tileId = ((tilesetId << TILESET_ID_BIT_N) >>> 0) 
-                                    | ((tileId << TILE_ID_BIT_N) >>> 0);
+            result.object[name].tileId = ((tilesetId << TILESET_ID_BIT_N) >>> 0)
+                | ((tileId << TILE_ID_BIT_N) >>> 0);
         }
     }
 
@@ -353,7 +357,7 @@ function transformTileset(filePath, document, omitTileProps = []) {
     // NOTE: assuming only one `image` element exists
     // we want this: `<image source="..." />`
     const image = root.getElementsByTagName("image")[0].getAttribute("source");
-    
+
     // map each tile from `<tile id="..."><properties>...</properties></tile>`
     // to (id: properties) pairs, then convert it to an object
     /** @type {{[id:number]:any}} */
