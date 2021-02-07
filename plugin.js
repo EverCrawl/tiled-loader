@@ -244,7 +244,11 @@ async function transformTilemap(filePath, document) {
                 let tileId;
                 if (gid === 0) {
                     // no tile => no collision
-                    result.collision[tileIndex] = CollisionKind.None;
+                    if (result.collision[tileIndex] == null) {
+                        // we only want to set it to null if it doesn't 
+                        // already have some collision value
+                        result.collision[tileIndex] = CollisionKind.None;
+                    }
                     tilesetId = 0;
                     tileId = 0;
                 }
