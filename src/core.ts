@@ -4,20 +4,24 @@
 // TODO: setup build in `prepare` script
 // TODO: make some tests + setup auto testing
 
-import fs from "fs/promises";
+import fs from "fs";
 import path from "path";
 import { JSDOM } from "jsdom";
 const DOM = new JSDOM("");
 const xmlParser = new DOM.window.DOMParser;
 
-export async function load({ filePath }: { filePath: string }) {
-    const file = await fs.readFile(filePath, "utf-8");
+export async function load(opt: { filePath: string }) {
+    return Promise.resolve(loadSync(opt));
+}
+
+export function loadSync({ filePath }: { filePath: string }) {
+    const file = fs.readFileSync(filePath, "utf-8");
     const xml = xmlParser.parseFromString(file, "text/xml") as unknown as Element;
 
     let data;
     if (isTilemapXML(xml)) {
         data = {
-            ".amt": JSON.stringify(await transformTilemap(filePath, xml))
+            ".amt": JSON.stringify(transformTilemap(filePath, xml))
         }
     }
     else if (isTilesetXML(xml)) {
@@ -76,11 +80,11 @@ export interface Template {
     props?: Properties
 }
 
-export async function loadTemplate(filePath: string): Promise<Template> {
+export function loadTemplate(filePath: string): Template {
     /* console.log("template", filePath); */
     // TODO: handle non-rect objects
     const xml = xmlParser.parseFromString(
-        await fs.readFile(filePath, "utf-8"),
+        fs.readFileSync(filePath, "utf-8"),
         "text/xml");
 
     const root = xml.getElementsByTagName("template")[0];
@@ -96,10 +100,10 @@ export async function loadTemplate(filePath: string): Promise<Template> {
     };
 }
 
-async function loadTileset(filePath: string) {
+function loadTileset(filePath: string) {
     return transformTileset(filePath,
         xmlParser.parseFromString(
-            await fs.readFile(filePath, "utf-8"),
+            fs.readFileSync(filePath, "utf-8"),
             "text/xml") as unknown as Element);
 
 }
@@ -108,10 +112,10 @@ export interface ParsedObject {
     [f: string]: any;
 }
 
-async function parseTiledObject(el: Element, baseDir: string): Promise<ParsedObject> {
+function parseTiledObject(el: Element, baseDir: string): ParsedObject {
     const templateAttr = el.getAttribute("template");
     let template: Template | undefined;
-    if (templateAttr != null) template = await loadTemplate(path.join(baseDir, templateAttr));
+    if (templateAttr != null) template = loadTemplate(path.join(baseDir, templateAttr));
 
     const props = {
         ...(template?.props ?? {}),
@@ -273,7 +277,7 @@ interface TempTileset {
     };
 }
 
-export async function transformTilemap(filePath: string, document: Element) {
+export function transformTilemap(filePath: string, document: Element) {
     const root = document.getElementsByTagName("map")[0];
 
     /******** STEP 1: read basic info ********/
@@ -306,7 +310,7 @@ export async function transformTilemap(filePath: string, document: Element) {
         tilesets.push({
             id: t.id,
             firstgid: t.firstgid,
-            data: (await loadTileset(path.join(path.dirname(filePath),
+            data: (loadTileset(path.join(path.dirname(filePath),
                 // the tileset is saved with '.xml', but tiled saves the path with '.tsx'
                 t.path.replace(".tsx", ".xml")))) as any
         })
@@ -393,7 +397,7 @@ export async function transformTilemap(filePath: string, document: Element) {
         const name = object.getAttribute("name");
         if (name == null) throw new Error(`[${filePath}] Object#${object.getAttribute("id")} is missing 'name'`);
         if (result.object[name] != null) throw new Error(`[${filePath}] Duplicate object name ${name}`);
-        result.object[name] = await parseTiledObject(object, path.dirname(filePath));
+        result.object[name] = parseTiledObject(object, path.dirname(filePath));
 
         if (result.object[name].base === "tile") {
             // resolve GID
