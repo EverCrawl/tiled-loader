@@ -52,6 +52,29 @@ function isTilemapXML(document) {
     return false;
 }
 
+/**
+ * 
+ * @param {string} filePath 
+ * @returns {Promise<{type:string,width:number,height:number}>}
+ */
+async function loadTemplate(filePath) {
+    console.log("template", filePath);
+    // TODO: handle non-rect objects
+    const xml = xmlParser.parseFromString(
+        await fs.readFile(filePath, "utf-8"),
+        "text/xml");
+
+    const root = xml.getElementsByTagName("template")[0];
+    const object = root.getElementsByTagName("object")[0];
+
+    return {
+        type: object.getAttribute("type"),
+        width: parseFloat(object.getAttribute("width")) ?? undefined,
+        height: parseFloat(object.getAttribute("height")) ?? undefined,
+        props: getProperties(object)
+    }
+}
+
 async function loadTileset(filePath) {
     return transformTileset(filePath,
         xmlParser.parseFromString(
@@ -62,30 +85,42 @@ async function loadTileset(filePath) {
 
 /** 
  * @param {Element} el
- * @returns {{[f:string]:any}}
+ * @returns {Promise<{[f:string]:any}>}
  */
-function parseTiledObject(el) {
+async function parseTiledObject(el, baseDir) {
+    let template = el.getAttribute("template");
+    if (template) template = await loadTemplate(path.join(baseDir, template));
+
+    const props = {
+        ...(template?.props ?? {}),
+        ...(getProperties(el) ?? {})
+    };
+
+    const width = el.getAttribute("width") ?? template?.width ?? null;
+    const height = el.getAttribute("height") ?? template?.height ?? null;
+
     let data;
     if (null != (data = el.querySelector("ellipse"))) {
         const out = {
-            type: "ellipse",
+            base: "ellipse",
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: parseFloat(el.getAttribute("x")),
             y: parseFloat(el.getAttribute("y")),
-            width: parseFloat(el.getAttribute("width")),
-            height: parseFloat(el.getAttribute("height")),
-            props: getProperties(el) ?? {}
+            width, height,
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         return out;
     }
     else if (null != (data = el.querySelector("point"))) {
         const out = {
-            type: "point",
+            base: "point",
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: parseFloat(el.getAttribute("x")),
             y: parseFloat(el.getAttribute("y")),
-            props: getProperties(el) ?? {}
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         return out;
@@ -103,12 +138,13 @@ function parseTiledObject(el) {
         }
 
         const out = {
-            type: "polygon",
+            base: "polygon",
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: originX,
             y: originY,
             points,
-            props: getProperties(el) ?? {}
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         return out;
@@ -126,52 +162,53 @@ function parseTiledObject(el) {
         }
 
         const out = {
-            type: "polyline",
+            base: "polyline",
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: originX,
             y: originY,
             points,
-            props: getProperties(el) ?? {}
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         return out;
     }
     else if (null != (data = el.querySelector("text"))) {
         const out = {
-            type: "text",
+            base: "text",
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: parseFloat(el.getAttribute("x")),
             y: parseFloat(el.getAttribute("y")),
-            width: parseFloat(el.getAttribute("width")),
-            height: parseFloat(el.getAttribute("height")),
+            width, height,
             text: {
                 size: data.getAttribute("pixelsize"),
                 wrap: parseInt(data.getAttribute("wrap")) === 1,
                 content: data.textContent
             },
-            props: getProperties(el) ?? {}
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         return out;
     }
     else {
         const out = {
+            type: template?.type ?? undefined,
             id: parseInt(el.getAttribute("id")),
             x: parseFloat(el.getAttribute("x")),
             y: parseFloat(el.getAttribute("y")),
-            width: el.getAttribute("width"),
-            height: el.getAttribute("height"),
-            props: getProperties(el) ?? {}
+            width, height,
+            props: Object.keys(props).length > 0 ? props : undefined
         };
 
         const gid = el.getAttribute("gid");
         if (gid != null) {
             // if it has a `gid` attribute, it's a tile object
-            out.type = "tile";
+            out.base = "tile";
             out.tileId = gid;
         } else {
             // otherwise it's a rect object
-            out.type = "rect";
+            out.base = "rect";
         }
 
         return out;
@@ -209,7 +246,7 @@ async function transformTilemap(filePath, document) {
     if (result.tilesets.length === 0) console.warn("")
 
     // load tilesets, these are temporary
-    /** @type {{id: number,firstgid: number,data:{image:{path: string,width: number,height: number},tiles: {[id:number]:any}}}[]} */
+    /** @type {{id: number,firstgid: number,data:{image:{path: string,width: number,height: number},tiles: {[id:number]:{anim:any,props:any}}}}[]} */
     let tilesets = [];
     for (const t of result.tilesets) {
         tilesets.push({
@@ -290,7 +327,7 @@ async function transformTilemap(filePath, document) {
         const name = object.getAttribute("name");
         if (name == null) throw new Error(`[${filePath}] Object#${object.getAttribute("id")} is missing 'name'`);
         if (result.object[name] != null) throw new Error(`[${filePath}] Duplicate object name ${name}`);
-        result.object[name] = parseTiledObject(object);
+        result.object[name] = await parseTiledObject(object, path.dirname(filePath));
 
         if (result.object[name].type === "tile") {
             // resolve GID
@@ -350,6 +387,26 @@ function getProperties(node, omit = []) {
     return props;
 }
 
+/**
+ * 
+ * @param {Element} node 
+ * @returns {number[]|null}
+ */
+function getAnimation(node) {
+    // TEMP: every animation steps at 150ms 
+    // TODO: have per-animation steps -> instance animated tiles (?)
+    const animEl = node.getElementsByTagName("animation")[0];
+    if (animEl == null) return null;
+    const frames = [];
+    for (const frame of animEl.getElementsByTagName("frame")) {
+        const tid = parseInt(frame.getAttribute("tileid"));
+        /* const delay = parseInt(frame.getAttribute("duration"));
+        frames.push({tid,delay}); */
+        frames.push(tid);
+    }
+    return frames;
+}
+
 /** 
  * @param {string} filePath
  * @param {Element} document 
@@ -364,11 +421,17 @@ function transformTileset(filePath, document, omitTileProps = []) {
 
     // map each tile from `<tile id="..."><properties>...</properties></tile>`
     // to (id: properties) pairs, then convert it to an object
-    /** @type {{[id:number]:any}} */
+    /** @type {{[id:number]:{anim:any,props:any}}} */
     const tiles = {};
     for (const tile of root.getElementsByTagName("tile")) {
+        const tileData = {};
+        const anim = getAnimation(tile);
+        if (anim != null) tileData.anim = anim;
         const props = getProperties(tile, omitTileProps);
-        if (props != null) tiles[tile.getAttribute("id")] = props;
+        if (props != null) tileData.props = props;
+        if (Object.keys(tileData).length > 0) {
+            tiles[tile.getAttribute("id")] = tileData;
+        }
     }
 
 

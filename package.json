@@ -5,5 +5,8 @@
     "license": "MIT",
     "dependencies": {
         "jsdom": "^16.4.0"
+    },
+    "scripts": {
+        "test": "node test.js"
     }
 }
