@@ -1,3 +1,4 @@
+export * from "./core";
 import { load } from "./core";
 declare function plugin(): {
     name: string;

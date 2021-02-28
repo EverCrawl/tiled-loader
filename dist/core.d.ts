@@ -1,8 +1,13 @@
-export declare function load({ filePath }: {
+export declare function load(opt: {
     filePath: string;
 }): Promise<{
     ".amt": string;
 } | undefined>;
+export declare function loadSync({ filePath }: {
+    filePath: string;
+}): {
+    ".amt": string;
+} | undefined;
 export declare const CollisionKind: Readonly<{
     readonly 0: "None";
     readonly 1: "Full";
@@ -33,7 +38,7 @@ export interface Template {
     height: number;
     props?: Properties;
 }
-export declare function loadTemplate(filePath: string): Promise<Template>;
+export declare function loadTemplate(filePath: string): Template;
 export interface ParsedObject {
     [f: string]: any;
 }
@@ -54,7 +59,7 @@ export interface TransformedTilemap {
         };
     };
 }
-export declare function transformTilemap(filePath: string, document: Element): Promise<TransformedTilemap>;
+export declare function transformTilemap(filePath: string, document: Element): TransformedTilemap;
 export declare function isTilesetXML(document: Element): boolean;
 export interface Properties {
     [field: string]: any;

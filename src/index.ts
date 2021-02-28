@@ -1,4 +1,5 @@
 
+export * from "./core";
 import { load } from "./core";
 
 function plugin() {
