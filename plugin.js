@@ -258,6 +258,13 @@ async function transformTilemap(filePath, document) {
         })
     }
     tilesets = tilesets.sort((a, b) => a.firstgid - b.firstgid).reverse();
+    console.log("temp tilesets");
+    for (const tileset of tilesets) {
+        console.log(tileset.data.image);
+        for (const tile of Object.values(tileset.data.tiles)) {
+            console.log(tile);
+        }
+    }
 
     /******** STEP 3: read tile layers ********/
     // get `<group>...</group>` element
@@ -282,7 +289,7 @@ async function transformTilemap(filePath, document) {
                 if (gid === 0) {
                     // no tile => no collision
                     if (result.collision[tileIndex] == null) {
-                        // we only want to set it to null if it doesn't 
+                        // we only want to set it to None if it doesn't 
                         // already have some collision value
                         result.collision[tileIndex] = CollisionKind.None;
                     }
@@ -302,11 +309,13 @@ async function transformTilemap(filePath, document) {
                     const tile = tileset.data.tiles[gid - tileset.firstgid];
 
                     // resolve collision
-                    if (tile.collision != null) {
-                        if (CollisionKind[tile.collision] == null) {
-                            throw new Error(`Invalid CollisionKind ${tile.collision}`)
+                    if (tile.props?.collision != null) {
+                        if (CollisionKind[tile.props.collision] == null) {
+                            throw new Error(`Invalid CollisionKind ${tile.props.collision}`)
                         }
-                        result.collision[tileIndex] = CollisionKind[tile.collision];
+                        result.collision[tileIndex] = CollisionKind[tile.props.collision];
+                    } else if (result.collision[tileIndex] == null) {
+                        result.collision[tileIndex] = CollisionKind.None;
                     }
 
                     tilesetId = tileset.id;
