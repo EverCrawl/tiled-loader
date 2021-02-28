@@ -128,8 +128,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
     let data;
     if (null != (data = el.querySelector("ellipse"))) {
         const out = {
-            base: "ellipse",
-            type: template?.type ?? undefined,
+            type: template?.type ?? "ellipse",
             id: parseInt(el.getAttribute("id")!),
             x: parseFloat(el.getAttribute("x")!),
             y: parseFloat(el.getAttribute("y")!),
@@ -141,8 +140,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
     }
     else if (null != (data = el.querySelector("point"))) {
         const out = {
-            base: "point",
-            type: template?.type ?? undefined,
+            type: template?.type ?? "point",
             id: parseInt(el.getAttribute("id")!),
             x: parseFloat(el.getAttribute("x")!),
             y: parseFloat(el.getAttribute("y")!),
@@ -164,8 +162,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
         }
 
         const out = {
-            base: "polygon",
-            type: template?.type ?? undefined,
+            type: template?.type ?? "polygon",
             id: parseInt(el.getAttribute("id")!),
             x: originX,
             y: originY,
@@ -188,8 +185,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
         }
 
         const out = {
-            base: "polyline",
-            type: template?.type ?? undefined,
+            type: template?.type ?? "polyline",
             id: parseInt(el.getAttribute("id")!),
             x: originX,
             y: originY,
@@ -201,8 +197,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
     }
     else if (null != (data = el.querySelector("text"))) {
         const out = {
-            base: "text",
-            type: template?.type ?? undefined,
+            type: template?.type ?? "text",
             id: parseInt(el.getAttribute("id")!),
             x: parseFloat(el.getAttribute("x")!),
             y: parseFloat(el.getAttribute("y")!),
@@ -230,11 +225,12 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
         const gid = el.getAttribute("gid");
         if (gid != null) {
             // if it has a `gid` attribute, it's a tile object
-            (<any>out).base = "tile";
+            // NOTE: don't re-assign type if it is inherited from a template
+            if (out.type === undefined) (<any>out).type = "tile";
             (<any>out).tileId = gid;
         } else {
             // otherwise it's a rect object
-            (<any>out).base = "rect";
+            if (out.type === undefined) (<any>out).type = "rect";
         }
 
         return out;
@@ -399,7 +395,7 @@ export function transformTilemap(filePath: string, document: Element) {
         if (result.object[name] != null) throw new Error(`[${filePath}] Duplicate object name ${name}`);
         result.object[name] = parseTiledObject(object, path.dirname(filePath));
 
-        if (result.object[name].base === "tile") {
+        if (result.object[name].type === "tile") {
             // resolve GID
             const tileset = tilesets.find(ts => ts.firstgid <= result.object[name].tileId);
             if (tileset == null) {
