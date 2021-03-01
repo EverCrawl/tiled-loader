@@ -364,7 +364,7 @@ export function transformTilemap(filePath: string, document: Element) {
                     const tile = tileset.data.tiles[gid - tileset.firstgid];
 
                     // resolve collision
-                    if (tile?.props?.collision != null) {
+                    if (tile != null && tile.props != null && tile.props.collision != null) {
                         const ck = CollisionKind[tile.props.collision as keyof CollisionKind] as number;
                         if (ck == null) {
                             throw new Error(`Invalid CollisionKind ${tile.props.collision}`)
