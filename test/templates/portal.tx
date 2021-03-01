@@ -2,7 +2,8 @@
 <template>
  <object name="_PORTAL" type="portal" width="16" height="32">
   <properties>
-   <property name="destination" value="test2"/>
+   <property name="direction" value=""/>
+   <property name="to" value=""/>
   </properties>
  </object>
 </template>
