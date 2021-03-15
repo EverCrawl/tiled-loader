@@ -47,20 +47,16 @@
   <properties>
    <property name="destination" value="test2"/>
   </properties>
-  <object id="2" name="spawn" type="spawnpoint" x="279" y="175">
+  <object id="2" name="spawn" type="spawnpoint" x="422" y="105">
    <point/>
   </object>
-  <object id="3" name="welcome_text" x="213.25" y="110.75" width="71.3333" height="19">
-   <text fontfamily="Arial" pixelsize="13" wrap="1">Welcome!</text>
-  </object>
-  <object id="6" name="instructions1" x="220.25" y="129.25" width="91" height="10.6667">
-   <text fontfamily="Arial" pixelsize="8" wrap="1">Use the arrow keys to move</text>
-  </object>
-  <object id="7" name="instructions2" x="220.25" y="139.25" width="91" height="10.6667">
-   <text fontfamily="Arial" pixelsize="8" wrap="1">Press space to jump</text>
-  </object>
-  <object id="8" name="instructions3" x="220.25" y="149.25" width="91" height="10.6667">
-   <text fontfamily="Arial" pixelsize="8" wrap="1">Press space to jump</text>
+  <object id="3" name="welcome_text" x="396.189" y="43.5985" width="78.0606" height="60.0909">
+   <text fontfamily="Arial" pixelsize="8" wrap="1">Welcome!
+A D - move left/right
+W S - climb ladders
+S - jump off platform
+X - let go of ladder 
+F - use portal</text>
   </object>
   <object id="9" name="test_ellipse" x="160.667" y="23.8333" width="47.5" height="20">
    <ellipse/>

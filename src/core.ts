@@ -196,6 +196,33 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
         return out;
     }
     else if (null != (data = el.querySelector("text"))) {
+        // pack decoration into a small string to save space
+        let decoration = "";
+        if (data.getAttribute("bold") === "1") decoration += "b";
+        if (data.getAttribute("italic") === "1") decoration += "i";
+        if (data.getAttribute("underline") === "1") decoration += "u";
+        if (data.getAttribute("strikeout") === "1") decoration += "s";
+
+        let color = data.getAttribute("color") ?? "#000000";
+        if (color.length > 7) {
+            // Tiled stores RGBA as AARRGGBB, CSS as RRGGBBAA
+            // move "AA" to the end
+            // "#AARRGGBB".substring(3) == "RRGGBB"
+            // "#AARRGGBB".substring(1, 3) == "AA"
+            // result: "#" + "RRGGBB" + "AA"
+            color = "#" + color.substring(3) + color.substring(1, 3);
+        }
+
+        let align = data.getAttribute("halign") ?? "left";
+        // CSS doesn't support "justify"
+        if (align === "justify") {
+            align = "left";
+        }
+
+        let baseline = data.getAttribute("valign") ?? "top";
+        // CSS "center" baseline is named "middle"
+        if (baseline === "center") baseline = "middle";
+
         const out = {
             type: template?.type ?? "text",
             id: parseInt(el.getAttribute("id")!),
@@ -203,8 +230,9 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
             y: parseFloat(el.getAttribute("y")!),
             width, height,
             text: {
-                size: data.getAttribute("pixelsize"),
-                wrap: parseInt(data.getAttribute("wrap")!) === 1,
+                font: data.getAttribute("fontfamily") ?? "sans-serif",
+                size: parseFloat(data.getAttribute("pixelsize") ?? "16"),
+                decoration, color, align, baseline,
                 content: data.textContent
             },
             props: Object.keys(props).length > 0 ? props : undefined
@@ -225,7 +253,7 @@ function parseTiledObject(el: Element, baseDir: string): ParsedObject {
         const gid = el.getAttribute("gid");
         if (gid != null) {
             // if it has a `gid` attribute, it's a tile object
-            // NOTE: don't re-assign type if it is inherited from a template
+            // don't re-assign type if it is inherited from a template
             if (out.type === undefined) (<any>out).type = "tile";
             (<any>out).tileId = gid;
         } else {
